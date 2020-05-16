@@ -1,0 +1,516 @@
+---
+title: "STAT 420 Final Project: MVP Selection by VI Modeling"
+author: "Author:
+         Ren Bettendorf(renb2), 
+         Noame Qin(jiaqiq3), 
+         Munwon Jung	(mjung16)"
+date: 2019.7.14-2019.8.04
+output:
+  html_document: 
+    toc: yes
+---
+
+
+### *Title: "Who's the Real MVP (Most Valuable Player)?"*
+
+******
+
+# **Introduction**
+
+******
+***
+
+## Preliminary Data Setting
+
+***
+
+**Dataset Background**
+
+- The data comes from the NBAstuffer.com which is a reputable stats-reference site that delivers unique metrics and NBA analytics content. Furthermore, this data looks at a single season from 2018 to 2019 and it is convenient to compile the data into a comfortable reading xlsx file. The MVP (only 1 player) during the 2018-2019 season was *Giannis Antetokounmpo* and the goal in this project is to observe whether our model would also result in showing the same player as the MVP of the season.
+
+
+**Description**
+
+- The data file 'nbastuffer_2018_2019.xlsx' has information on 214 NBA players from season 2018 - 2019. The variable we want to predict is Versatility Index (VI) while the rest will be considered predictor variables.
+
+Versatility Index (VI): $$VI = \sqrt[3]{PPG * APG * RPG}$$
+<br />
+VI is a metric that measures a player's ability to produce in points, assits, and rebounds. The average player will score around a five on the index, while top players score above 10.
+<br />
+<br />
+To further describe the variables, the following reference list will be helpful. Later we will fit model with less predictors, and we will put the term explanation will appear again when needed:
+<br />
+
+    - Name: Player's name
+    - Team: Team player played for maority of the games as we did combine players into one row.
+    - Age: Player's Age
+    - GP: Games Played.
+    - MPG: Average Minutes Played Per Game.
+    - MIN: Perentage of overall team minutes played
+    - USG: Usage percentage is an estimate of the percentage of team plays used by a player while on the court
+    - TOR: Turnover rate per 100 possessions.
+    - FTA: Free Throws Attempted.
+    - FTPER: Percentage of Free Throws Made.
+    - 2PA: Two point shots attempted.
+    - 2PPER: Two point shot percentage made.
+    - 3PA: Three point shots attempted.
+    - 3PPER: Three point shot percentage made.
+    - EFG: Effective shooting percentage which translates shot attempts into points for all shots.
+    - TS: True Shooting percentage is a measure of shooting efficiency for any attepted shot.
+    - PPG: Average Points Per Game.
+    - RPG: Average Rebounds Per Game.
+    - TRB: Percentage of rebounds for a player per amount of time player is on the court.
+    - APG: Average Assists Per Game.
+    - ASTPER: Average Assists Per Game Percentage.
+    - SPG: Average Steals Per Game.
+    - BPG: Average Shot Blocks Per Game.
+    - TOPG: Average Turnovers Per Game.
+    - VI: Versatility Index
+    - ORTG: Rating a player offensively for every point player produced per 100 total individual possessions.
+    - DRTG: Rating a player defensively for every time a player allowed per 100 total individual possessions.
+
+**Goal & Expectation**
+
+The optimistic expection is to use fitted VI model to calculate players' new, predicted VI so that we can find the player who really deserves to be the MVP. If the model shows a different MVP than in reality, then there is a chance that other factors, such as players' advertising in public and their education background, are influencing the player of MVP.
+
+**Data Cleaning**
+
+Persuing the data from the xlsx file, we can see the players who had played for more than one team during the season. So after loading the data into R, we remove these players.
+
+```{r, message = FALSE, warning = FALSE}
+library(readxl)
+season2018_2019_raw = read_xlsx('nbastuffer_2018_2019.xlsx', skip = 1)
+season2018_2019_remove_duplicates = season2018_2019_raw[!duplicated(season2018_2019_raw$`FULL NAME`), ]
+```
+
+Since the first column is not used in our model fitting process and so this will be removed to further help with readability of the data.
+
+```{r, message = FALSE, warning = FALSE}
+season2018_2019_without_rank = subset(season2018_2019_remove_duplicates, select = -RANK)
+```
+
+In addition, removing any NA entries.
+
+```{r}
+season2018_2019 = na.omit(season2018_2019_without_rank)
+```
+
+For the final step we will update the names of the columns to let the variables easy to read and understand.
+
+(Notes: There are some variables starting from numerics such as "2PPer". In this case, the original predictor name is '2PPer', and R automatically add "X" before the numeric "2")
+
+```{r}
+colnames(season2018_2019) = c("Name","Team","POS","Age","GP","MPG","MIN","USG","TOR","FTA","FTPer","X2PA","X2PPer","X3PA","X3PPER","EFG","TS","PPG","RPG","TRB","APG","ASTPER","SPG","BPG","TOPG","VI","ORTG","DRTG")
+```
+
+ 
+**Motivation**
+
+At first, our interest in basketball and skepticism of whether the chosen MVP is correctly reflected by the data sparked us to investigate whether the chosen MVP was accurately determined from the overall players' data. For example, there could be a player of better statistics that deserves MVP, but MVP could have been influenced by fan-vote instead of purely players' statistics. Therefore, we want to investigate whether the chosen MVP player of the season really did deserve to earn MVP award.
+
+**Data Snippet**
+
+Here is a snippet of data with the first 10 columns.
+
+```{r, message = FALSE, warning = FALSE}
+library(knitr)
+kable(head(season2018_2019[,1:10]))
+```
+
+```{r}
+(model_presplit = lm(VI ~ . - Name - Team - POS, data = season2018_2019))
+```
+
+And then split the data into train and test sets.
+
+```{r}
+set.seed(20190803)
+train_set = sample(nrow(season2018_2019), 100)
+train_data = season2018_2019[train_set, ]
+test_data = season2018_2019[-train_set, ]
+
+start_model = lm(VI ~ 1, data = train_data)
+(model_aftersplit = lm(VI ~ . - Name - Team - POS, data = train_data))
+n = length(resid(model_aftersplit))
+```
+
+To begin with, we find the original MVP.
+
+```{r}
+season2018_2019[which.max(season2018_2019$VI), ]
+```
+
+After the Introduction, we will start performing the model fitting process.
+
+***
+
+## Explanation of the Project Report
+
+***
+
+Stage X: Preliminary Data Observation
+
+- Data graphs and correlation among predictors.
+
+
+**Methods**
+
+*Stage I: AIC/BIC Test with direction of Forward and Backward*
+
+- Use **Akaike Information Criterion (AIC)** and **Bayesian Information Criterion (BIC)** for additive medels to find preliminary model with better variable selection.
+
+*Stage II: Stage II: Experiments on vif()*
+
+- Using 2 approaches to find the solution to vif problem.
+
+*Stage III: Normality Test*
+
+- Use **Cook's Distance** to remove unnecessary observations in "test_data".
+
+- Check **multicollinearity** of the dataset to possibly reduce predictors.
+
+- Find other possiblility and fit new linear models and diagonose models.
+
+- Check model asuumption for models and conculde a proper linear regression model.
+
+
+**Results**
+
+*Stage IV: MVP Selection*
+
+- Find the MVP by using 3 models fitted by the end of Stage I (model_version_1), II (model_version_2), and III (model_version_3).
+
+
+**Discussion**
+
+*Stage V: Conclusion*
+
+- Conclusion of the project.
+
+******
+
+# **Model Fitting from Stage X to V**
+
+******
+***
+
+## Stage X: Preliminary Data Observation
+
+***
+
+### Histogram
+
+```{r}
+hist(season2018_2019$VI, breaks = 90, border = "dodgerblue")
+```
+
+- The result of the histrogram is neither right-skewed nor left-skewed. In fact, it is almost normally disributed. From the histogram, we can tell that there are players that are doing above average (players with VI above 10). 
+
+### Box Plot
+
+```{r}
+boxplot(season2018_2019$VI, main = "Boxplot (Versatility Index)")
+```
+
+- From the boxplot, the median of VI is close to being around 7. The player that has a high chance of winning the MVP will most likely be in the outlier section.
+
+```{r}
+data = data.frame(
+"Data" = c("Median","Mean", "Variance", "Standard Deviation","Max", "Min"),
+"Result" = c(median(season2018_2019$VI), mean(season2018_2019$VI), 
+var(season2018_2019$VI),
+sd(season2018_2019$VI),
+max(season2018_2019$VI),
+min(season2018_2019$VI)))
+kable(data)
+```
+
+### Pairs Plot 
+
+```{r}
+pairs(season2018_2019[,c(4,5,8,11,17,18,19,20,22,25,26,27)])
+```
+
+### Correlation Matrix
+
+```{r}
+kable(cor(season2018_2019[,c(4,5,8,11,17,18,19,20,22,25,26,27)]))
+```
+
+The following correlation plot shows relationship between various predictors that we looked at in our data.
+
+```{r}
+par(mar=c(2,2,2,2))
+corrplot::corrplot(cor(season2018_2019[,c(4,5,8,11,17,18,19,20,22,25,26,27)]), method = "circle", 
+    tl.cex = 1, tl.pos = "lt", 
+    tl.col = "dodgerblue")
+```
+
+***
+
+## Stage I: AIC/BIC Test with direction of Forward and Backward
+
+***
+
+After we build up additive model ("model_aftersplit") and start model (start_model) which the predictor is 1, in this stage we can use AIC/BIC with direction of both Forward and Backward and then to see which model comes from those 4 tests would be the best. We will evaluate the results from 4 tests by checking 'vif()' and the number of predictors.
+
+First, we use 'library(faraway)' to evoke 'vif()'.
+
+```{r, warning = FALSE}
+library(faraway)
+```
+
+**AIC Backward**
+
+```{r}
+(model_AIC_Backward = step(model_aftersplit, direction = "backward", trace = FALSE))
+vif(model_AIC_Backward)
+```
+
+**AIC Forward**
+
+```{r}
+(model_AIC_Forward = step(start_model,
+     scope = VI ~ Age + GP + MPG + MIN + USG + TOR + FTA + FTPer + X2PA + X2PPer + X3PA + X3PPER + EFG + TS + PPG + RPG + TRB + APG + ASTPER + SPG + BPG + TOPG + ORTG + DRTG,
+    direction = "forward", trace = FALSE))
+vif(model_AIC_Forward)
+```
+
+**BIC Backward**
+
+```{r}
+(model_BIC_Backward = step(model_aftersplit, direction = "backward", k = log(n), trace = FALSE))
+vif(model_BIC_Backward)
+```
+
+**BIC Forward**
+
+```{r}
+(model_BIC_Forward = step(start_model,
+     scope = VI ~ Age + GP + MPG + MIN + USG + TOR + FTA + FTPer + X2PA + X2PPer + X3PA + X3PPER + EFG + TS + PPG + RPG + TRB + APG + ASTPER + SPG + BPG + TOPG + ORTG + DRTG,
+    direction = "forward",
+    k = log(n), trace = FALSE))
+vif(model_BIC_Forward)
+```
+
+After applying those 4 tests shown above, it is obvious that BIC Forward and Backward give good start since the number of predictors resulted from BIC Forward are less than what resulted from other tests, and also we have promising vif value. Thus, we will start modify our model based on those predictors shown above.
+
+The 5 predictors that selected preliminary tests are ASTPER, RPG, APG, GP, and PPG. Thus, we are going to fit our model with those predictors and potentially their interactions and transformations. Here are the term explanation for those 5 predictors:
+
+1. ASTPER: Assists per game percentage.
+
+2. RPG: Average Rebounds Per Game.
+
+3. APG: Average Assists Per Game.
+
+4. GP: Games Played.
+
+5. PPG: Points per game.
+
+
+*The storage of our best model in Stage 1:*
+
+```{r}
+(model_version_1 = model_BIC_Forward)
+```
+
+***
+
+## Stage II: Experiments on vif()
+
+***
+
+In Stage II of our project, we are going to find ways to reduce vif value for our model. The 1st approach is to find appropriate transformation for predictors that having large vif value, while the 2nd approach is to find interactions that could reduce the vif value.
+
+For the 1st approach, since we want to reduce vif value for our model, so first we decide to transform APG which has the largest vif value.
+
+**Original Model with APG**
+
+```{r}
+vif(model_aftersplit)
+```
+
+**New Model without APG**
+
+```{r}
+model_2 = lm(VI ~ . - Name - Team - POS - APG, data = train_data)
+vif(model_2)
+```
+
+**Model with exponential of APG**
+
+```{r}
+model_2_2 = lm(VI ~ . - Name - Team - POS - APG + exp(APG), data = train_data)
+vif(model_2_2)
+```
+
+**Model with APG, Power of 2 **
+
+```{r}
+model_2_3 = lm(VI ~ . - Name - Team - POS - APG + I(APG ^ 2), data = train_data)
+vif(model_2_3)
+```
+
+Since vif value come from transformation of APG does not make bovious improvements, so we now move on to next approach of reducing vif: find interactions among predictors.
+
+**Correlation**
+
+Since the vif quantifies the effect of collinearity on the variance of regression estimates which reflects the correlation among predictors, so now test the correlation among 4 predictors that have vif value greater than 5.
+
+4 predictors are: TOPG, TS, ORTG, and PPG. 
+
+```{r, warning = FALSE}
+round(cor(train_data$ASTPER, train_data$APG), 3)
+```
+
+Fortunately, there are high correlation between ASTPER and APG. We can modify our original model by using this interactions.
+
+```{r}
+model_3 = lm(VI ~ ASTPER:APG + RPG + GP + PPG, data = train_data)
+vif(model_3)
+```
+
+This model has vif that less than 2.5 for all predictors, so we keep this model and in our next stage, we will check the assumptions to further assure the validity and effectiveness of the model.
+
+
+*The storage of our best model in Stage 2:*
+
+```{r}
+(model_version_2 = model_3)
+```
+
+***
+
+## Stage III: Normality Test
+
+***
+
+In Stage III, we will now build up "diagnostics" to check normality tests including Shapiro-Wilks Test and bptest. After that, we will test "model_version_2" on normality to see whether this model violates the assumption.
+
+```{r, warning = FALSE}
+library(lmtest)
+
+test_data = subset(test_data, cooks.distance(model_version_2) <= 4 / length(cooks.distance(model_version_2)))
+test_data = na.omit(test_data)
+
+diagnostics = function(model, pcol = "grey", lcol = "dodgerblue", alpha = 0.01){
+    resid = predict(model, test_data) - test_data$VI
+    par(mfrow = c(1,2))
+    plot(predict(model, test_data), resid, col = pcol, pch = 20, xlab = "Fitted", ylab = "Residues", main = "Fitted Versus Residuals")
+    abline(h = 0, col = lcol, lwd = 2.5)
+    
+    qqnorm(resid, main = "Normal Q-Q Plot", col = pcol)
+    qqline(resid, col = lcol, lwd = 2.5)
+    
+    p_val_shapiro = shapiro.test(resid)$p.value
+    p_val_bptest = bptest(model, data = test_data)$p.value
+    return(list(p_val_1 = p_val_shapiro, decision = ifelse(p_val_shapiro < alpha, "Reject", "Fail to Reject"), p_val_2 = p_val_bptest, decision = ifelse(p_val_bptest < alpha, "Reject", "Fail to Reject")))
+}
+
+diagnostics(model_version_2)
+```
+
+The "model_version_2" has small p-value in both shapiro and bp tests so the normality is suspective. Nevertheless, "model_version_2" gives us how we should approach next.
+
+Now, we will find other possible interactions that works for our model.
+
+```{r}
+model_4 = lm(VI ~ (ASTPER + APG + RPG + GP + PPG) ^ 2, data = train_data)
+
+(model_4_2 = step(model_4, trace = FALSE))
+
+diagnostics(model_4_2)
+vif(model_4_2)
+```
+
+"model_4_2" has p-value greater than alpha = 0.01 in both tests, while vif value getting larger. So now check whether there is any interactions in "model_4_2" could be elminiated.
+
+```{r}
+(model_4_2)
+
+model_5_1 = lm(VI ~ ASTPER + APG + RPG + GP + PPG + ASTPER:APG + 
+    RPG:PPG, data = train_data)
+
+model_5_2 = lm(VI ~ ASTPER + APG + RPG + GP + PPG + ASTPER:APG + 
+    ASTPER:PPG, data = train_data)
+
+model_5_3 = lm(VI ~ ASTPER + APG + RPG + GP + PPG + 
+    ASTPER:RPG + RPG:PPG, data = train_data)
+
+diagnostics(model_5_1)
+vif(model_5_1)
+diagnostics(model_5_2)
+vif(model_5_2)
+diagnostics(model_5_3)
+vif(model_5_3)
+```
+
+In "model_5_3", we have small p-value in shapiro test, so the assumption is suspective that we will not consider "model_5_3". While both "model_5_1" and "model_5_2" pass the normality tests, "model_5_1" have better vif value in general compare to "model_5_2", so we will move on from "mode_5_1".
+
+```{r}
+(model_5_1)
+
+model_5_1_1 = lm(VI ~ APG + RPG + GP + PPG + ASTPER:APG + 
+    RPG:PPG, data = train_data)
+vif(model_5_1_1)
+
+model_5_1_2 = lm(VI ~ ASTPER + RPG + GP + PPG + ASTPER:APG + 
+    RPG:PPG, data = train_data)
+vif(model_5_1_2)
+```
+
+"model_5_1_2" has a better vif, so we develop from here.
+
+```{r}
+(model_5_1_2)
+
+model_5_1_2_1 = lm(VI ~ ASTPER + RPG + GP + PPG + ASTPER:APG, data = train_data)
+vif(model_5_1_2_1)
+diagnostics(model_5_1_2_1)
+```
+
+Despite the fact that the model has 'ASTPER:APG' where vif is slightly greater than 5, we can still keep this model since it pass the normality with shapiro and bp tests.
+
+
+*The storage of our best model in Stage 3:*
+
+```{r}
+(model_version_3 = model_5_1_2_1)
+```
+
+***
+
+## Stage IV: MVP Selection
+
+***
+
+In Stage IV, we will use all 3 models we fitted in Stage I, Stage II, and Stage III to see who have the best VI.
+
+```{r}
+season2018_2019[which.max(predict(model_version_1, season2018_2019)), ]
+season2018_2019[which.max(predict(model_version_2, season2018_2019)), ]
+season2018_2019[which.max(predict(model_version_3, season2018_2019)), ]
+```
+
+***
+
+## Stage V: Conclusion
+
+***
+
+**Conclusion**
+
+As we can see from reading the result in Stage IV, none of our 3 models from Stage I, Stage II, and Stage III were able to conclude the MVP as Giannis Antetokounmpo.
+
+From what we learned in "STAT 420: Statistical Modeling in R", we were able to create 3 different models in Stage I through using AIC/BIC going both forward and backward, as well as in Stage II through vif with polynomial & interaction and in Stage III through considering Shapiro-Wilks Test and bptest.
+
+Since "model_version_2" had a different result from "model_verison_1" and "model_version_3", we could see how each test such as normality tests is crucial in real-world model fitting.
+
+The result in Stage IV allowed us to state that the real MVP was confirmed as Shabazz Napier. We may conclude that MVP is indeed influenced by other factors such as advertisement and popularity of the player themselves.
+
+
+******
+
+# *Thanks for reading~ And have a good STAT 420 Summer!*
+
+******
